@@ -1,734 +1,312 @@
 ﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI 英文對話模擬系統 | Gemini Powered v1.8.1</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700;900&family=Inter:wght@400;600;800&display=swap');
-        
-        :root {
-            --primary: #4f46e5;
-            --primary-dark: #3730a3;
-            --emerald: #10b981;
-        }
-
-        body { 
-            font-family: 'Inter', 'Noto Sans TC', sans-serif; 
-            background-color: #f8fafc; 
-            overflow-x: hidden; 
-            -webkit-tap-highlight-color: transparent; 
-        }
-
-        .glass-panel { 
-            background: rgba(255, 255, 255, 0.95); 
-            backdrop-filter: blur(12px); 
-            border: 1px solid rgba(255, 255, 255, 0.5); 
-        }
-
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e2e8f0; border-radius: 10px; }
-
-        .recording-pulse { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 
-            70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } 
-        }
-
-        .audio-bar { transition: height 0.1s ease; min-height: 4px; }
-        
-        .advice-bubble {
-            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-            border: 1px dashed #4ade80;
-        }
-
-        .loading-dots:after {
-            content: '.';
-            animation: dots 1.5s steps(5, end) infinite;
-        }
-        @keyframes dots {
-            0%, 20% { color: rgba(0,0,0,0); text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
-            40% { color: #6366f1; text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
-            60% { text-shadow: .25em 0 0 #6366f1, .5em 0 0 rgba(0,0,0,0); }
-            80%, 100% { text-shadow: .25em 0 0 #6366f1, .5em 0 0 #6366f1; }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Native AI 英文對話模擬系統 | No-Key Local Coach v2.1</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700;900&family=Inter:wght@400;600;800&display=swap');
+    body { font-family:'Inter','Noto Sans TC',sans-serif; background:#f8fafc; overflow-x:hidden; -webkit-tap-highlight-color:transparent; }
+    .glass-panel { background:rgba(255,255,255,.95); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.5); }
+    .custom-scrollbar::-webkit-scrollbar{width:4px}
+    .custom-scrollbar::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:10px}
+    .recording-pulse{animation:pulse 1.5s infinite}
+    @keyframes pulse{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(239,68,68,.4)}70%{transform:scale(1.05);box-shadow:0 0 0 15px rgba(239,68,68,0)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+    .audio-bar{transition:height .1s ease;min-height:4px}
+    .advice-bubble{background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%);border:1px dashed #4ade80}
+    .scenario-card:hover{transform:translateY(-2px);transition:all .2s}
+    .pill{font-size:10px;font-weight:900;letter-spacing:.12em}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+  </style>
 </head>
+
 <body class="p-2 md:p-6 min-h-screen flex flex-col bg-slate-50">
 
-    <!-- 頂部標題區 -->
-    <header class="mb-4 bg-white p-4 md:p-5 rounded-[2rem] shadow-sm border-b-4 border-indigo-600">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-                <h1 class="text-lg md:text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                    <i class="fa-solid fa-robot text-indigo-600"></i> AI 英文對話模擬系統
-                </h1>
-                <p class="text-[10px] md:text-xs text-slate-400 font-bold mt-0.5">國立清華大學 吳智鴻教授開發 v1.8.1</p>
+  <!-- Header -->
+  <header class="mb-4 bg-white p-4 md:p-5 rounded-[2rem] shadow-sm border-b-4 border-indigo-600">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <div>
+        <h1 class="text-lg md:text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+          <i class="fa-solid fa-bolt text-indigo-600"></i> Native 英文對話教練
+        </h1>
+        <p class="text-[10px] md:text-xs text-slate-400 font-bold mt-0.5">GitHub Pages 免 Key｜Local Coach v2.1</p>
+      </div>
+      <div id="status-badge"
+           class="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black tracking-widest border border-emerald-100 shadow-sm transition-all whitespace-nowrap">
+        READY
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <div class="grid grid-cols-12 gap-4 flex-grow">
+
+    <!-- Left: Metrics -->
+    <div class="col-span-12 lg:col-span-3 order-3 lg:order-1 flex flex-col gap-4">
+      <div class="glass-panel p-5 rounded-[2.5rem] shadow-xl flex-grow flex flex-col border-t-4 border-indigo-600">
+        <h2 class="text-xs font-black mb-5 flex items-center gap-2 text-indigo-700 uppercase tracking-wider">
+          <i class="fa-solid fa-gauge-high"></i> Rubric Dashboard
+        </h2>
+
+        <div class="space-y-6">
+          <div class="bg-indigo-50/50 p-4 rounded-3xl border border-indigo-100/50">
+            <div class="flex justify-between items-end mb-2">
+              <span class="text-slate-500 text-[10px] font-black uppercase">Overall Score</span>
+              <span id="score-val" class="text-indigo-600 font-black text-2xl">--</span>
             </div>
-            <div class="flex items-center gap-2">
-                <button onclick="openSettings()" class="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-all shadow-inner">
-                    <i class="fa-solid fa-gear text-sm"></i>
-                </button>
-                <div id="status-badge" class="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black tracking-widest border border-blue-100 shadow-sm transition-all whitespace-nowrap">
-                    SYSTEM READY
+            <div class="w-full bg-indigo-100 rounded-full h-2.5 overflow-hidden">
+              <div id="score-bar" class="bg-indigo-500 h-full transition-all duration-1000" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-white rounded-3xl border border-slate-100 shadow-sm p-3">
+              <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fluency</div>
+              <div class="text-lg font-black text-slate-800" id="r-fluency">--</div>
+            </div>
+            <div class="bg-white rounded-3xl border border-slate-100 shadow-sm p-3">
+              <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Accuracy</div>
+              <div class="text-lg font-black text-slate-800" id="r-accuracy">--</div>
+            </div>
+            <div class="bg-white rounded-3xl border border-slate-100 shadow-sm p-3">
+              <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vocabulary</div>
+              <div class="text-lg font-black text-slate-800" id="r-vocab">--</div>
+            </div>
+            <div class="bg-white rounded-3xl border border-slate-100 shadow-sm p-3">
+              <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Coherence</div>
+              <div class="text-lg font-black text-slate-800" id="r-coh">--</div>
+            </div>
+          </div>
+
+          <div class="space-y-5">
+            <div class="px-1">
+              <div class="flex justify-between text-[11px] mb-1.5">
+                <span class="text-slate-400 font-bold uppercase">Speed (WPM)</span>
+                <span id="pace-tag" class="text-blue-500 font-black">---</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="flex-grow h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div id="pace-bar" class="bg-blue-400 h-full transition-all duration-500" style="width: 0%"></div>
                 </div>
+                <span id="pace-val" class="text-[10px] font-black text-slate-600 w-10 text-right">0</span>
+              </div>
             </div>
+
+            <div class="px-1">
+              <div class="flex justify-between text-[11px] mb-1.5">
+                <span class="text-slate-400 font-bold uppercase">Filler Words</span>
+                <span id="filler-tag" class="text-amber-500 font-black">None</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="flex-grow h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div id="filler-bar" class="bg-amber-400 h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <span id="filler-val" class="text-[10px] font-black text-slate-600 w-10 text-right">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+            <div class="flex items-center gap-3">
+              <div id="performance-icon" class="text-3xl transition-all duration-500">🎯</div>
+              <div>
+                <span class="text-slate-400 text-[10px] font-black block uppercase tracking-wider">Level</span>
+                <span id="performance-val" class="text-slate-700 font-bold text-sm">Waiting...</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <div class="flex items-end justify-center gap-1.5 h-12" id="visualizer">
+              <div class="audio-bar w-1.5 bg-indigo-200 rounded-full h-1"></div>
+              <div class="audio-bar w-1.5 bg-indigo-300 rounded-full h-1"></div>
+              <div class="audio-bar w-1.5 bg-indigo-400 rounded-full h-1"></div>
+              <div class="audio-bar w-1.5 bg-indigo-500 rounded-full h-1"></div>
+              <div class="audio-bar w-1.5 bg-indigo-400 rounded-full h-1"></div>
+              <div class="audio-bar w-1.5 bg-indigo-300 rounded-full h-1"></div>
+              <div class="audio-bar w-1.5 bg-indigo-200 rounded-full h-1"></div>
+            </div>
+          </div>
+
         </div>
-    </header>
-
-    <!-- 主要內容區 -->
-    <div class="grid grid-cols-12 gap-4 flex-grow">
-        
-        <!-- 左側：數據分析 -->
-        <div class="col-span-12 lg:col-span-3 order-3 lg:order-1 flex flex-col gap-4">
-            <div class="glass-panel p-5 rounded-[2.5rem] shadow-xl flex-grow flex flex-col border-t-4 border-indigo-600">
-                <h2 class="text-xs font-black mb-5 flex items-center gap-2 text-indigo-700 uppercase tracking-wider">
-                    <i class="fa-solid fa-chart-pie"></i> Performance Analysis
-                </h2>
-                
-                <div class="space-y-6">
-                    <div class="bg-indigo-50/50 p-4 rounded-3xl border border-indigo-100/50">
-                        <div class="flex justify-between items-end mb-2">
-                            <span class="text-slate-500 text-[10px] font-black uppercase">Overall Score</span>
-                            <span id="score-val" class="text-indigo-600 font-black text-2xl">--</span>
-                        </div>
-                        <div class="w-full bg-indigo-100 rounded-full h-2.5 overflow-hidden">
-                            <div id="score-bar" class="bg-indigo-500 h-full transition-all duration-1000" style="width: 0%"></div>
-                        </div>
-                    </div>
-
-                    <div class="space-y-5">
-                        <div class="px-1">
-                            <div class="flex justify-between text-[11px] mb-1.5">
-                                <span class="text-slate-400 font-bold uppercase">Fluency (WPM)</span>
-                                <span id="pace-tag" class="text-blue-500 font-black">Waiting</span>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <div class="flex-grow h-2 bg-slate-100 rounded-full overflow-hidden">
-                                    <div id="pace-bar" class="bg-blue-400 h-full transition-all duration-500" style="width: 0%"></div>
-                                </div>
-                                <span id="pace-val" class="text-[10px] font-black text-slate-600 w-10 text-right">0</span>
-                            </div>
-                        </div>
-
-                        <div class="px-1">
-                            <div class="flex justify-between text-[11px] mb-1.5">
-                                <span class="text-slate-400 font-bold uppercase">Accuracy</span>
-                                <span id="conf-tag" class="text-emerald-500 font-black">Waiting</span>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <div class="flex-grow h-2 bg-slate-100 rounded-full overflow-hidden">
-                                    <div id="conf-bar" class="bg-emerald-400 h-full transition-all duration-500" style="width: 0%"></div>
-                                </div>
-                                <span id="conf-val" class="text-[10px] font-black text-slate-600 w-10 text-right">0%</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-between p-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                        <div class="flex items-center gap-3">
-                            <div id="emotion-icon" class="text-3xl grayscale opacity-30 transition-all duration-500">😶</div>
-                            <div>
-                                <span class="text-slate-400 text-[10px] font-black block uppercase tracking-wider">Tone Detection</span>
-                                <span id="emotion-val" class="text-slate-700 font-bold text-sm">Analyze...</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="pt-2">
-                        <div class="flex items-end justify-center gap-1.5 h-12" id="visualizer">
-                            <div class="audio-bar w-1.5 bg-indigo-200 rounded-full h-1"></div>
-                            <div class="audio-bar w-1.5 bg-indigo-300 rounded-full h-1"></div>
-                            <div class="audio-bar w-1.5 bg-indigo-400 rounded-full h-1"></div>
-                            <div class="audio-bar w-1.5 bg-indigo-500 rounded-full h-1"></div>
-                            <div class="audio-bar w-1.5 bg-indigo-400 rounded-full h-1"></div>
-                            <div class="audio-bar w-1.5 bg-indigo-300 rounded-full h-1"></div>
-                            <div class="audio-bar w-1.5 bg-indigo-200 rounded-full h-1"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 中間：對話框與控制 -->
-        <div class="col-span-12 lg:col-span-6 order-1 lg:order-2 flex flex-col gap-4">
-            <div class="glass-panel rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[400px] md:h-[550px] border-2 border-white">
-                <div class="bg-white/70 backdrop-blur p-4 border-b border-slate-100 flex justify-between items-center px-6">
-                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span> Live Feedback
-                    </span>
-                    <button id="tts-btn-main" onclick="speakLastAI()" class="hidden w-8 h-8 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition">
-                        <i class="fa-solid fa-volume-high text-xs"></i>
-                    </button>
-                </div>
-                
-                <div id="chat-container" class="flex-grow p-4 md:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-4 bg-slate-50/20">
-                    <div class="bg-white p-4 rounded-3xl rounded-tl-none max-w-[90%] text-slate-700 shadow-sm border border-slate-100 text-sm leading-relaxed">
-                        Hello! 我是你的 AI 英文導師。請先點擊頂部齒輪圖示設定您的 API Key，然後從右側選擇一個場景開始練習。
-                    </div>
-                </div>
-
-                <div id="typing-indicator" class="hidden px-6 py-3 bg-white/50 text-[10px] text-slate-400 font-bold flex items-center gap-2 border-t border-slate-50">
-                    <i class="fa-solid fa-microchip fa-spin text-indigo-400"></i> <span class="loading-dots">Gemini 正在分析您的語法與口音</span>
-                </div>
-            </div>
-
-            <!-- 控制面板 -->
-            <div class="flex justify-center items-center gap-6 md:gap-10 py-2">
-                <button id="report-btn-main" onclick="generateSummaryReport()" class="hidden w-14 h-14 md:w-16 md:h-16 rounded-full bg-white shadow-xl border-4 border-amber-400 flex flex-col items-center justify-center hover:scale-110 transition-all text-amber-500 active:scale-95">
-                    <i class="fa-solid fa-file-waveform text-lg"></i>
-                    <span class="text-[7px] font-black uppercase mt-1">Report</span>
-                </button>
-
-                <button id="record-btn" class="w-20 h-20 md:w-28 md:h-28 rounded-full bg-white shadow-2xl border-4 border-indigo-500 flex flex-col items-center justify-center group hover:bg-indigo-50 transition-all duration-300 relative active:scale-95">
-                    <div id="record-fill" class="absolute inset-0 bg-indigo-500/10 scale-0 rounded-full transition-transform duration-300"></div>
-                    <i id="record-icon" class="fa-solid fa-microphone text-2xl md:text-4xl text-indigo-500 mb-1 relative z-10"></i>
-                    <span id="record-text" class="text-[9px] font-black text-indigo-500 uppercase relative z-10">Record</span>
-                </button>
-
-                <button id="advice-btn-toggle" onclick="showAdvice()" class="hidden w-14 h-14 md:w-16 md:h-16 rounded-full bg-white shadow-xl border-4 border-emerald-400 flex flex-col items-center justify-center hover:scale-110 transition-all text-emerald-500 active:scale-95">
-                    <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
-                    <span class="text-[7px] font-black uppercase mt-1">Advice</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- 右側：場景與歷史 -->
-        <div class="col-span-12 lg:col-span-3 order-2 lg:order-3 flex flex-col gap-4">
-            <div class="glass-panel p-5 rounded-[2.5rem] shadow-xl border-t-4 border-emerald-500 flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xs font-black text-emerald-700 flex items-center gap-2 uppercase tracking-wider">
-                        <i class="fa-solid fa-map-location-dot"></i> Life Scenarios
-                    </h2>
-                    <button onclick="generateNewQuestionsWithAI()" id="ai-gen-btn" class="w-7 h-7 flex items-center justify-center hover:bg-emerald-50 rounded-full transition text-emerald-400">
-                        <i class="fa-solid fa-rotate"></i>
-                    </button>
-                </div>
-                <div id="topic-badge" class="mb-3 inline-block px-3 py-1 bg-emerald-50 text-emerald-600 rounded-xl text-[9px] font-black border border-emerald-100 uppercase tracking-widest">Loading...</div>
-                <div id="question-list" class="space-y-2 max-h-[160px] overflow-y-auto custom-scrollbar"></div>
-            </div>
-
-            <div class="glass-panel p-5 rounded-[2.5rem] shadow-xl flex-grow border-t-4 border-amber-500 flex flex-col min-h-[120px]">
-                <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Recent Practice</h2>
-                <div id="history-list" class="text-[11px] space-y-2 overflow-y-auto flex-grow custom-scrollbar">
-                    <p class="text-slate-300 italic text-center py-4">No history yet.</p>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
 
-    <!-- 彈窗：診斷 -->
-    <div id="advice-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-            <div class="p-6 border-b flex justify-between items-center bg-indigo-600 text-white relative">
-                <div class="absolute top-0 left-0 w-full h-1 bg-white/20">
-                    <div id="modal-score-bar" class="h-full bg-emerald-400 transition-all duration-1000" style="width: 0%"></div>
-                </div>
-                <h3 class="text-lg font-black flex items-center gap-2">語文深度診斷</h3>
-                <button onclick="closeAdvice()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10">&times;</button>
-            </div>
-            <div id="advice-content" class="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar bg-slate-50/50 space-y-4"></div>
-            <div class="p-6 bg-white border-t">
-                <button onclick="closeAdvice()" class="w-full py-4 bg-slate-100 text-slate-600 rounded-3xl font-black hover:bg-slate-200 transition">完成</button>
-            </div>
+    <!-- Center: Chat -->
+    <div class="col-span-12 lg:col-span-6 order-1 lg:order-2 flex flex-col gap-4">
+      <div class="glass-panel rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[420px] md:h-[560px] border-2 border-white">
+        <div class="bg-white/70 backdrop-blur p-4 border-b border-slate-100 flex justify-between items-center px-6">
+          <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Local Coach Engine
+          </span>
+          <div class="flex items-center gap-2">
+            <button id="tts-btn-main" onclick="speakLastAI()" class="hidden w-8 h-8 flex items-center justify-center bg-indigo-50 rounded-full text-indigo-600 hover:bg-indigo-100 transition">
+              <i class="fa-solid fa-volume-high text-xs"></i>
+            </button>
+            <button id="copy-btn" onclick="copyLastReport()" class="hidden w-8 h-8 flex items-center justify-center bg-slate-50 rounded-full text-slate-600 hover:bg-slate-100 transition" title="Copy report">
+              <i class="fa-regular fa-copy text-xs"></i>
+            </button>
+          </div>
         </div>
+
+        <div id="chat-container" class="flex-grow p-4 md:p-6 overflow-y-auto custom-scrollbar flex flex-col gap-4 bg-slate-50/20">
+          <div class="bg-white p-4 rounded-3xl rounded-tl-none max-w-[90%] text-slate-700 shadow-sm border border-slate-100 text-sm leading-relaxed">
+            Hello! 這是<strong>純免 Key</strong>版本：改寫/文法解釋/對話教練/評分都在本地執行。請右側選場景，按 Record 開始！
+          </div>
+        </div>
+
+        <div id="thinking-indicator" class="hidden px-6 py-3 bg-white/50 text-[10px] text-slate-400 font-bold flex items-center gap-2 border-t border-slate-50">
+          <i class="fa-solid fa-microchip fa-spin text-indigo-400"></i> 本地引擎分析中...
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="flex justify-center items-center gap-6 md:gap-10 py-2">
+        <div class="w-16"></div>
+
+        <button id="record-btn"
+                class="w-20 h-20 md:w-28 md:h-28 rounded-full bg-white shadow-2xl border-4 border-indigo-500 flex flex-col items-center justify-center group hover:bg-indigo-50 transition-all duration-300 relative active:scale-95">
+          <div id="record-fill" class="absolute inset-0 bg-indigo-500/10 scale-0 rounded-full transition-transform duration-300"></div>
+          <i id="record-icon" class="fa-solid fa-microphone text-2xl md:text-4xl text-indigo-500 mb-1 relative z-10"></i>
+          <span id="record-text" class="text-[9px] font-black text-indigo-500 uppercase relative z-10">Record</span>
+        </button>
+
+        <div class="w-16"></div>
+      </div>
     </div>
 
-    <!-- 彈窗：設定 -->
-    <div id="settings-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md hidden items-center justify-center p-4 z-[60]">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl p-8">
-            <h3 class="text-xl font-black text-slate-800 mb-2 flex items-center gap-2">
-                <i class="fa-solid fa-key text-indigo-500"></i> API Key 設定
-            </h3>
-            <p class="text-xs text-slate-500 mb-6 leading-relaxed">
-                為了安全起見，請輸入您自己的 Gemini API Key。密鑰將僅儲存在您的瀏覽器中，不會上傳至伺服器。
-            </p>
-            <div class="space-y-4">
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">Your Gemini API Key</label>
-                    <input type="password" id="api-key-input" placeholder="Enter your AI key here..." class="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="saveApiKey()" class="flex-grow py-4 bg-indigo-600 text-white rounded-2xl font-black hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">儲存密鑰</button>
-                    <button onclick="closeSettings()" class="px-6 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black hover:bg-slate-200 transition">取消</button>
-                </div>
-                <p class="text-[10px] text-center text-slate-400">
-                    還沒有密鑰？ <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-500 underline">點此前往 Google AI Studio 申請</a>
-                </p>
-            </div>
+    <!-- Right: Scenarios + Log -->
+    <div class="col-span-12 lg:col-span-3 order-2 lg:order-3 flex flex-col gap-4">
+
+      <div class="glass-panel p-5 rounded-[2.5rem] shadow-xl border-t-4 border-emerald-500 flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xs font-black text-emerald-700 flex items-center gap-2 uppercase tracking-wider">
+            <i class="fa-solid fa-list-check"></i> Practice Scenarios
+          </h2>
         </div>
+        <div id="question-list" class="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar"></div>
+      </div>
+
+      <div class="glass-panel p-5 rounded-[2.5rem] shadow-xl flex-grow border-t-4 border-amber-500 flex flex-col min-h-[120px]">
+        <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Session Log</h2>
+        <div id="history-list" class="text-[11px] space-y-2 overflow-y-auto flex-grow custom-scrollbar">
+          <p class="text-slate-300 italic text-center py-4">Waiting for first response...</p>
+        </div>
+      </div>
+
     </div>
+  </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, addDoc, query, onSnapshot, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+  <script>
+    // ----------------------------
+    // Local Coach Data
+    // ----------------------------
+    const SCENARIOS = [
+      {
+        name: "At a Restaurant",
+        emoji: "🍔",
+        intents: ["order", "allergy", "table", "pay"],
+        questions: [
+          "What would you like to order today?",
+          "Do you have any food allergies?",
+          "Would you like a table for two?"
+        ]
+      },
+      {
+        name: "Travel & Airport",
+        emoji: "✈️",
+        intents: ["passport", "destination", "luggage", "boarding"],
+        questions: [
+          "Could I see your passport and ticket?",
+          "Where are you flying to today?",
+          "Do you have any luggage to check in?"
+        ]
+      },
+      {
+        name: "Job Interview",
+        emoji: "💼",
+        intents: ["self", "strength", "weakness", "motivation"],
+        questions: [
+          "Could you tell me about yourself?",
+          "What are your greatest strengths?",
+          "Why do you want to work for us?"
+        ]
+      },
+      {
+        name: "Daily Greeting",
+        emoji: "👋",
+        intents: ["day", "weekend", "hobby", "movie"],
+        questions: [
+          "How was your day so far?",
+          "What are your plans for the weekend?",
+          "Have you seen any good movies lately?"
+        ]
+      }
+    ];
 
-        // --- 設定與初始化 ---
-        const apiKey = ""; // Canvas 環境將自動注入此變數
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'gemini-english-coach-v1.8.1';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        
-        let db, auth, user = null;
-        let currentTheme = null, selectedQuestionIndex = 0, isRecording = false;
-        let recognition = null, dialogueHistory = [], lastAnalysis = null;
-        let startTime = null, finalTranscript = "", audioContext, analyser, dataArray;
-        let activeUserBubble = null;
+    // fillers
+    const FILLER_WORDS = ["um","uh","err","ah","like","basically","actually","you know","kind of","sort of"];
+    const COHERENCE_MARKERS = ["because","so","but","however","therefore","for example","for instance","first","second","finally","in addition","also"];
 
-        // --- API Key 管理邏輯 ---
-        const getActiveApiKey = () => {
-            // 優先使用環境注入的 apiKey，若無則使用 localStorage
-            const stored = localStorage.getItem('gemini_api_key');
-            return apiKey || stored || "";
-        };
+    // Advanced adjective suggestions
+    const ADJ_UPGRADE = [
+      { from: /\bgood\b/ig, to: "great / excellent / fantastic" },
+      { from: /\bbad\b/ig, to: "unpleasant / poor / subpar" },
+      { from: /\bvery\b/ig, to: "really / extremely / highly" },
+      { from: /\bnice\b/ig, to: "pleasant / lovely" }
+    ];
 
-        window.openSettings = () => {
-            document.getElementById('api-key-input').value = localStorage.getItem('gemini_api_key') || "";
-            document.getElementById('settings-modal').style.display = 'flex';
-        };
+    // Pattern-based rewrites (safe, deterministic)
+    const REWRITE_RULES = [
+      { id: "polite_request", title:"更禮貌的請求", pattern:/\bI want\b/ig, replace:"I would like" , explain:"在服務情境中，I would like 比 I want 更禮貌。"},
+      { id: "opinion", title:"更正式的表達看法", pattern:/\bI think\b/ig, replace:"In my opinion" , explain:"In my opinion 較正式，適合面試/正式對話。"},
+      { id: "because_start", title:"避免因為開頭太口語", pattern:/^Because\s+/i, replace:"This is because " , explain:"用 This is because 讓句子更完整。"},
+      { id: "and_overuse", title:"減少 And 的重複", pattern:/\band\b/ig, replace:"and (or: in addition / furthermore)" , explain:"連接詞多樣化能提升 coherence。"},
+    ];
 
-        window.closeSettings = () => { document.getElementById('settings-modal').style.display = 'none'; };
+    // Grammar rules (common ESL)
+    const GRAMMAR_RULES = [
+      {
+        id:"a_an",
+        title:"a / an 使用",
+        detect:(t)=> /\ba\s+[aeiou]/i.test(t) || /\ban\s+[^aeiou\s]/i.test(t),
+        fix:(t)=> t
+          .replace(/\ba\s+([aeiou])/ig, "an $1")
+          .replace(/\ban\s+([^aeiou\s])/ig, "a $1"),
+        explain:"a 用在子音開頭音；an 用在母音開頭音（看發音，不是字母）。",
+        exampleBad:"a apple / an book",
+        exampleGood:"an apple / a book"
+      },
+      {
+        id:"third_person_s",
+        title:"第三人稱單數 -s",
+        detect:(t)=> /\b(he|she|it)\s+(go|do|have|want|need|like|work|play)\b/i.test(t),
+        fix:(t)=> t
+          .replace(/\b(he|she|it)\s+go\b/ig, "$1 goes")
+          .replace(/\b(he|she|it)\s+do\b/ig, "$1 does")
+          .replace(/\b(he|she|it)\s+have\b/ig, "$1 has")
+          .replace(/\b(he|she|it)\s+(want|need|like|work|play)\b/ig, "$1 $2s"),
+        explain:"現在式第三人稱單數（he/she/it）動詞常加 -s / -es（例外：do→does, have→has）。",
+        exampleBad:"He go to work.",
+        exampleGood:"He goes to work."
+      },
+      {
+        id:"past_time",
+        title:"過去時間搭配過去式",
+        detect:(t)=> /\b(yesterday|last\s+night|last\s+week|two\s+days\s+ago)\b/i.test(t) && /\b(am|is|are|go|do|have)\b/i.test(t),
+        fix:(t)=> t
+          .replace(/\bgo\b/ig, "went")
+          .replace(/\bdo\b/ig, "did")
+          .replace(/\bhave\b/ig, "had")
+          .replace(/\b(am|is)\b/ig, "was")
+          .replace(/\bare\b/ig, "were"),
+        explain:"句子有明確過去時間（yesterday/last...）時，動詞多用過去式。",
+        exampleBad:"Yesterday I go there.",
+        exampleGood:"Yesterday I went there."
+      }
+    ];
 
-        window.saveApiKey = () => {
-            const val = document.getElementById('api-key-input').value.trim();
-            if (val) {
-                localStorage.setItem('gemini_api_key', val);
-                closeSettings();
-                location.reload(); // 重新整理以套用新的 Key
-            } else {
-                localStorage.removeItem('gemini_api_key');
-                closeSettings();
-            }
-        };
-
-        /**
-         * 核心邏輯：AI 呼叫輔助函式
-         */
-        const callGemini = async (endpoint, payload) => {
-            const currentKey = getActiveApiKey();
-            if (!currentKey) {
-                showErrorMessage("未偵測到 API Key。請點擊上方齒輪圖示進行設定。");
-                openSettings();
-                throw new Error('API Key missing');
-            }
-
-            const delays = [1000, 2000, 4000, 8000, 16000];
-            for (let i = 0; i <= delays.length; i++) {
-                try {
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${endpoint}?key=${currentKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    return await response.json();
-                } catch (e) {
-                    if (i === delays.length) {
-                        showErrorMessage("AI 服務連線失敗，請檢查 API Key 是否正確或網路是否暢通。");
-                        throw e;
-                    }
-                    await new Promise(r => setTimeout(r, delays[i]));
-                }
-            }
-        };
-
-        const showErrorMessage = (msg) => {
-            setStatus("SYSTEM ERROR", "red");
-            const container = document.getElementById('chat-container');
-            const div = document.createElement('div');
-            div.className = "bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold self-center shadow-sm border border-red-100 my-2 animate-pulse";
-            div.innerText = `⚠️ ${msg}`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        };
-
-        // --- 場景生成 ---
-        window.generateNewQuestionsWithAI = async () => {
-            const btn = document.getElementById('ai-gen-btn');
-            const badge = document.getElementById('topic-badge');
-            btn.querySelector('i').classList.add('fa-spin');
-            badge.innerText = "✨ GENERATING...";
-
-            try {
-                const data = await callGemini('gemini-2.5-flash-preview-09-2025:generateContent', {
-                    contents: [{ parts: [{ text: "Generate a daily life English conversation scenario. Return JSON: {name: string, emoji: string, questions: string[] (exactly 3 short, interactive questions)}." }] }],
-                    generationConfig: { responseMimeType: "application/json" }
-                });
-                const res = JSON.parse(data.candidates[0].content.parts[0].text);
-                currentTheme = res;
-                renderThemeUI();
-            } catch (e) {
-                currentTheme = { name: "Ordering Coffee", emoji: "☕", questions: ["What kind of coffee would you like?", "Any sugar or milk?", "Is that all for you?"] };
-                renderThemeUI();
-            } finally {
-                btn.querySelector('i').classList.remove('fa-spin');
-            }
-        };
-
-        function renderThemeUI() {
-            document.getElementById('topic-badge').innerText = `${currentTheme.emoji} ${currentTheme.name}`;
-            const qList = document.getElementById('question-list');
-            qList.innerHTML = '';
-            currentTheme.questions.forEach((q, i) => {
-                const btn = document.createElement('button');
-                btn.className = `w-full text-left p-3 rounded-2xl border transition-all text-[11px] flex gap-3 bg-white border-slate-100 hover:border-emerald-200`;
-                btn.id = `q-item-${i}`; btn.onclick = () => selectQuestion(i);
-                btn.innerHTML = `<span class="font-black text-emerald-500">Q${i+1}</span> <span class="text-slate-600 font-bold">${q}</span>`;
-                qList.appendChild(btn);
-            });
-            selectQuestion(0);
-        }
-
-        const selectQuestion = i => {
-            selectedQuestionIndex = i;
-            document.querySelectorAll('[id^="q-item-"]').forEach(el => el.classList.remove('bg-emerald-50', 'border-emerald-200', 'ring-2', 'ring-emerald-100'));
-            const active = document.getElementById(`q-item-${i}`);
-            if(active) active.classList.add('bg-emerald-50', 'border-emerald-200', 'ring-2', 'ring-emerald-100');
-            addChatMessage("AI", currentTheme.questions[i]);
-            document.getElementById('tts-btn-main').classList.remove('hidden');
-        };
-
-        // --- 語音識別 ---
-        const initSpeech = () => {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) return;
-            recognition = new SpeechRecognition();
-            recognition.continuous = true; 
-            recognition.interimResults = true; 
-            recognition.lang = 'en-US';
-
-            recognition.onstart = () => {
-                finalTranscript = ""; 
-                startTime = Date.now();
-                updateRecordUI(); 
-                setStatus("LISTENING", "blue");
-                startRealVisualizer();
-                activeUserBubble = addChatMessage("User", "..."); 
-            };
-
-            recognition.onresult = (e) => {
-                let interim = ""; 
-                let sessionFinal = "";
-                for (let i = 0; i < e.results.length; ++i) {
-                    if (e.results[i].isFinal) sessionFinal += e.results[i][0].transcript;
-                    else interim += e.results[i][0].transcript;
-                }
-                finalTranscript = sessionFinal;
-                if (activeUserBubble) activeUserBubble.innerText = finalTranscript + interim;
-            };
-
-            recognition.onend = () => {
-                if (isRecording) {
-                    try { recognition.start(); } catch(e){} 
-                } else {
-                    handleSpeechEnd();
-                }
-            };
-        };
-
-        const toggleRecording = () => {
-            if (!recognition) return;
-            if (isRecording) {
-                isRecording = false;
-                recognition.stop();
-            } else {
-                isRecording = true;
-                recognition.start();
-            }
-        };
-
-        const handleSpeechEnd = async () => {
-            const text = finalTranscript.trim();
-            if (!text) { 
-                if (activeUserBubble) activeUserBubble.remove(); 
-                setStatus("READY", "blue"); 
-                updateRecordUI();
-                return; 
-            }
-            const duration = (Date.now() - startTime) / 1000;
-            const pace = Math.round((text.split(/\s+/).length / (duration || 1)) * 60);
-            updatePaceUI(pace);
-            updateRecordUI();
-            analyzeWithAI(currentTheme?.questions[selectedQuestionIndex] || "General", text, pace);
-            activeUserBubble = null;
-        };
-
-        // --- AI 分析與診斷 ---
-        const analyzeWithAI = async (q, a, pace) => {
-            document.getElementById('typing-indicator').classList.remove('hidden');
-            try {
-                const data = await callGemini('gemini-2.5-flash-preview-09-2025:generateContent', {
-                    contents: [{ parts: [{ text: `Topic: ${currentTheme.name}\nQuestion: ${q}\nUser Answer: ${a}\nSpeech Pace: ${pace} WPM` }] }],
-                    systemInstruction: { parts: [{ text: "You are an English Language Coach. Analyze the user's answer. Provide JSON: {score: 0-100, emotion: string, emoji: string, confidence: 0-100, feedback: {vocab: string, grammar: string, fluency: string}, better: string}. Use Traditional Chinese for feedback strings." }] },
-                    generationConfig: { responseMimeType: "application/json" }
-                });
-                
-                const res = JSON.parse(data.candidates[0].content.parts[0].text);
-                lastAnalysis = res;
-                updateAnalysisUI(res);
-                addAdviceBubble(res.better);
-                saveToCloud(q, a, res);
-                
-                document.getElementById('report-btn-main').classList.remove('hidden');
-                document.getElementById('advice-btn-toggle').classList.remove('hidden');
-                setStatus("ANALYSIS DONE", "green");
-            } catch (e) { 
-                // Error already handled in callGemini
-            } finally {
-                document.getElementById('typing-indicator').classList.add('hidden');
-            }
-        };
-
-        const addAdviceBubble = (text) => {
-            const container = document.getElementById('chat-container');
-            const div = document.createElement('div');
-            div.className = `advice-bubble self-start p-4 rounded-3xl rounded-tl-none text-emerald-800 text-sm shadow-sm border border-emerald-100 animate-in slide-in-from-left-2 mb-2 max-w-[85%]`;
-            div.innerHTML = `
-                <div class="flex items-center gap-2 mb-2 text-[10px] font-black uppercase text-emerald-600">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> ✨ 更好的表達方式
-                </div>
-                <div class="font-bold italic mb-3">"${text}"</div>
-                <button onclick="speakBetter()" class="px-4 py-1.5 bg-emerald-500 text-white rounded-full text-[10px] font-black hover:bg-emerald-600 transition flex items-center gap-2">
-                    <i class="fa-solid fa-play"></i> 聽聽正確發音
-                </button>
-            `;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        };
-
-        // --- TTS 語音合成 ---
-        const speakText = async (text) => {
-            if (!text) return;
-            try {
-                const result = await callGemini('gemini-2.5-flash-preview-tts:generateContent', {
-                    contents: [{ parts: [{ text: `Say clearly: ${text}` }] }],
-                    generationConfig: { 
-                        responseModalities: ["AUDIO"], 
-                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } } 
-                    }
-                });
-                
-                const base64Data = result.candidates[0].content.parts[0].inlineData.data;
-                const audioBlob = pcmToWav(base64Data, 24000);
-                const audio = new Audio(URL.createObjectURL(audioBlob));
-                audio.play();
-            } catch (e) {
-                const msg = new SpeechSynthesisUtterance(text); 
-                msg.lang = 'en-US'; 
-                window.speechSynthesis.speak(msg);
-            }
-        };
-
-        function pcmToWav(base64, sampleRate) {
-            const buffer = Uint8Array.from(atob(base64), c => c.charCodeAt(0)).buffer;
-            const view = new DataView(new ArrayBuffer(44 + buffer.byteLength));
-            const writeString = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-            writeString(0, 'RIFF'); view.setUint32(4, 36 + buffer.byteLength, true); writeString(8, 'WAVE'); writeString(12, 'fmt ');
-            view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-            view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
-            writeString(36, 'data'); view.setUint32(40, buffer.byteLength, true);
-            new Uint8Array(view.buffer, 44).set(new Uint8Array(buffer)); 
-            return new Blob([view], { type: 'audio/wav' });
-        }
-
-        // --- UI 更新與輔助 ---
-        const startRealVisualizer = async () => {
-            try {
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    const source = audioContext.createMediaStreamSource(stream); 
-                    analyser = audioContext.createAnalyser(); 
-                    analyser.fftSize = 32;
-                    source.connect(analyser);
-                    dataArray = new Uint8Array(analyser.frequencyBinCount);
-                }
-                const draw = () => {
-                    if (!isRecording) {
-                        document.querySelectorAll('.audio-bar').forEach(bar => bar.style.height = '4px');
-                        return;
-                    }
-                    analyser.getByteFrequencyData(dataArray);
-                    document.querySelectorAll('.audio-bar').forEach((bar, i) => {
-                        const h = Math.max(4, (dataArray[i % dataArray.length] / 255) * 40);
-                        bar.style.height = `${h}px`;
-                    });
-                    requestAnimationFrame(draw);
-                };
-                draw();
-            } catch (err) {}
-        };
-
-        const updateAnalysisUI = res => {
-            document.getElementById('score-val').innerText = res.score;
-            document.getElementById('score-bar').style.width = `${res.score}%`;
-            document.getElementById('emotion-val').innerText = res.emotion;
-            document.getElementById('emotion-icon').innerText = res.emoji;
-            document.getElementById('emotion-icon').classList.remove('grayscale', 'opacity-30');
-            document.getElementById('conf-val').innerText = `${res.confidence}%`;
-            document.getElementById('conf-bar').style.width = `${res.confidence}%`;
-            document.getElementById('conf-tag').innerText = res.confidence > 80 ? "Confident" : "Improving";
-        };
-
-        const updatePaceUI = pace => {
-            document.getElementById('pace-val').innerText = pace;
-            document.getElementById('pace-bar').style.width = `${Math.min((pace / 160) * 100, 100)}%`;
-            document.getElementById('pace-tag').innerText = pace > 110 ? "Natural" : "Steady";
-        };
-
-        const updateRecordUI = () => {
-            const btn = document.getElementById('record-btn'), icon = document.getElementById('record-icon'), text = document.getElementById('record-text'), fill = document.getElementById('record-fill');
-            if (isRecording) {
-                btn.classList.add('recording-pulse', 'border-red-500'); 
-                icon.className = "fa-solid fa-stop text-3xl md:text-4xl text-red-500 z-10";
-                text.innerText = "Stop"; 
-                fill.classList.replace('scale-0', 'scale-100');
-            } else {
-                btn.classList.remove('recording-pulse', 'border-red-500'); 
-                icon.className = "fa-solid fa-microphone text-3xl md:text-4xl text-indigo-500 z-10";
-                text.innerText = "Record"; 
-                fill.classList.replace('scale-100', 'scale-0');
-            }
-        };
-
-        const addChatMessage = (role, text) => {
-            const container = document.getElementById('chat-container');
-            const div = document.createElement('div');
-            const isAI = role === "AI";
-            div.className = `${isAI ? 'bg-white text-slate-700 self-start rounded-tl-none' : 'bg-indigo-600 text-white self-end rounded-tr-none shadow-indigo-100'} p-4 rounded-3xl shadow-sm text-sm leading-relaxed border border-slate-100 animate-in slide-in-from-bottom-2 mb-2 max-w-[85%]`;
-            div.innerText = text; container.appendChild(div); container.scrollTop = container.scrollHeight;
-            return div;
-        };
-
-        const setStatus = (msg, color) => {
-            const badge = document.getElementById('status-badge');
-            badge.innerText = msg; badge.className = `px-4 py-1.5 rounded-full text-[10px] font-black border bg-${color}-50 text-${color}-600 border-${color}-100 transition-all`;
-        };
-
-        // --- Firebase 雲端同步 ---
-        const initFirebase = async () => {
-            if (!firebaseConfig) return;
-            try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app); db = getFirestore(app);
-                
-                const initAuth = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                };
-                await initAuth();
-                onAuthStateChanged(auth, u => { user = u; if (user) loadCloudHistory(); });
-            } catch (e) {}
-        };
-
-        const saveToCloud = async (q, a, analysis) => {
-            const entry = { question: q, answer: a, score: analysis.score, timestamp: Date.now() };
-            dialogueHistory.unshift(entry); updateHistoryUI();
-            if (!user || !db) return;
-            try {
-                await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'history'), entry);
-            } catch (e) {}
-        };
-
-        const loadCloudHistory = () => {
-            if (!user || !db) return;
-            const hQuery = query(collection(db, 'artifacts', appId, 'users', user.uid, 'history'), orderBy('timestamp', 'desc'), limit(5));
-            onSnapshot(hQuery, snap => {
-                const data = []; snap.forEach(doc => data.push(doc.data()));
-                if (data.length > 0) { dialogueHistory = data; updateHistoryUI(); }
-            }, () => {});
-        };
-
-        const updateHistoryUI = () => {
-            const list = document.getElementById('history-list'); list.innerHTML = '';
-            if (dialogueHistory.length === 0) {
-                list.innerHTML = '<p class="text-slate-300 italic text-center py-4">No history yet.</p>';
-                return;
-            }
-            dialogueHistory.slice(0, 5).forEach(item => {
-                const d = document.createElement('div');
-                d.className = "p-3 bg-white rounded-2xl border border-slate-50 mb-1 shadow-sm flex justify-between items-center group hover:border-indigo-100 transition";
-                d.innerHTML = `
-                    <div class="truncate pr-2">
-                        <div class="text-[7px] text-slate-400 font-black uppercase tracking-tighter">${item.question}</div>
-                        <div class="text-indigo-600 font-bold truncate text-[10px]">"${item.answer}"</div>
-                    </div>
-                    <div class="text-[10px] font-black ${item.score > 80 ? 'text-emerald-500' : 'text-amber-500'}">${item.score}</div>
-                `;
-                list.appendChild(d);
-            });
-        };
-
-        // --- 彈窗與報告功能 ---
-        window.showAdvice = () => {
-            if (!lastAnalysis) return;
-            const modal = document.getElementById('advice-modal'), content = document.getElementById('advice-content');
-            modal.style.display = 'flex';
-            setTimeout(() => { document.getElementById('modal-score-bar').style.width = `${lastAnalysis.score}%`; }, 200);
-            
-            content.innerHTML = `
-                <div class="bg-emerald-50 p-6 rounded-[2rem] border border-emerald-100 shadow-sm border-l-8 border-l-emerald-400">
-                    <h4 class="text-emerald-700 font-black text-[10px] uppercase mb-2">✨ 真人導師建議說法</h4>
-                    <p class="text-emerald-900 font-black italic text-lg leading-relaxed">"${lastAnalysis.better}"</p>
-                </div>
-                <div class="space-y-3">
-                    ${Object.entries(lastAnalysis.feedback).map(([k, v]) => `
-                        <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-start gap-4">
-                            <div class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500 flex-shrink-0"><i class="fa-solid fa-check-circle"></i></div>
-                            <div>
-                                <h4 class="text-indigo-600 font-black text-[10px] uppercase">${k}</h4>
-                                <p class="text-slate-600 text-sm mt-1 leading-snug font-medium">${v}</p>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>`;
-        };
-
-        window.generateSummaryReport = async () => {
-            const modal = document.getElementById('advice-modal'), content = document.getElementById('advice-content');
-            modal.style.display = 'flex';
-            content.innerHTML = `
-                <div class="flex flex-col items-center py-16 text-center">
-                    <i class="fa-solid fa-sparkles fa-spin text-5xl text-amber-500 mb-6"></i>
-                    <p class="text-slate-600 font-black text-lg">正在彙整您的學習進度報告...</p>
-                </div>`;
-            
-            const historyText = dialogueHistory.map(h => `Q:${h.question} | A:${h.answer} | Score:${h.score}`).join('\n');
-            try {
-                const data = await callGemini('gemini-2.5-flash-preview-09-2025:generateContent', {
-                    contents: [{ parts: [{ text: `Based on this practice history, generate a summary report:\n${historyText}` }] }],
-                    systemInstruction: { parts: [{ text: "Create a motivational study report in HTML (Tailwind classes). Highlight strengths, areas to improve, and a final grade. Language: Traditional Chinese." }] }
-                });
-                content.innerHTML = `<div class="text-slate-700 leading-relaxed">${data.candidates[0].content.parts[0].text}</div>`;
-            } catch (e) { 
-                content.innerHTML = '<p class="text-center py-10 text-red-500 font-bold">報告生成暫時不可用，請稍後再試。</p>'; 
-            }
-        };
-
-        window.closeAdvice = () => { document.getElementById('advice-modal').style.display = 'none'; };
-        window.speakLastAI = () => speakText(currentTheme?.questions[selectedQuestionIndex]);
-        window.speakBetter = () => speakText(lastAnalysis?.better);
-
-        // --- 啟動入口 ---
-        window.onload = () => {
-            initFirebase(); 
-            initSpeech();
-            
-            // 檢查是否有 API Key
-            if (!getActiveApiKey()) {
-                openSettings();
-            } else {
-                generateNewQuestionsWithAI();
-            }
-            
-            document.getElementById('record-btn').onclick = toggleRecording;
-        };
-    </script>
-</body>
-</html>
+    const STATUS_STYLE = {
+      emer
