@@ -309,4 +309,663 @@
     ];
 
     const STATUS_STYLE = {
-      emer
+      emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
+      blue: "bg-blue-50 text-blue-600 border-blue-100",
+      red: "bg-red-50 text-red-600 border-red-100",
+      slate: "bg-slate-50 text-slate-600 border-slate-100",
+      amber: "bg-amber-50 text-amber-600 border-amber-100",
+      indigo: "bg-indigo-50 text-indigo-600 border-indigo-100",
+    };
+
+    // ----------------------------
+    // State
+    // ----------------------------
+    let selectedScenarioIndex = 0;
+    let selectedQuestionIndex = 0;
+    let isRecording = false;
+
+    let recognition = null;
+    let startTime = null;
+    let finalTranscript = "";
+    let activeUserBubble = null;
+
+    let lastReportText = "";
+    let lastCoachReply = "";
+
+    // Visualizer
+    let audioContext = null, analyser = null, dataArray = null, rafId = null, mediaStream = null;
+
+    // ----------------------------
+    // Init
+    // ----------------------------
+    function initApp(){
+      renderScenarios();
+      initSpeechRecognition();
+      selectScenario(0);
+      document.getElementById('record-btn').addEventListener('click', toggleRecording);
+      setStatus("READY", "emerald");
+    }
+    window.addEventListener('DOMContentLoaded', initApp);
+
+    // ----------------------------
+    // UI helpers
+    // ----------------------------
+    function setStatus(msg, colorKey){
+      const badge = document.getElementById('status-badge');
+      const style = STATUS_STYLE[colorKey] || STATUS_STYLE.slate;
+      badge.innerText = msg;
+      badge.className = `px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest border shadow-sm transition-all whitespace-nowrap ${style}`;
+    }
+
+    function addChatMessage(role, text, opts={}){
+      const container = document.getElementById('chat-container');
+      const div = document.createElement('div');
+      const isAI = role === "AI";
+      div.className = `${isAI ? 'bg-white text-slate-700 self-start rounded-tl-none' : 'bg-indigo-600 text-white self-end rounded-tr-none'} p-4 rounded-3xl shadow-sm text-sm leading-relaxed border border-slate-100 mb-2 max-w-[90%] whitespace-pre-wrap`;
+      div.innerText = text;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+      return div;
+    }
+
+    function addPanelCard(title, badgeText, html){
+      const container = document.getElementById('chat-container');
+      const wrap = document.createElement('div');
+      wrap.className = "advice-bubble self-start p-4 rounded-3xl rounded-tl-none text-emerald-900 text-sm shadow-sm border border-emerald-100 mb-2 max-w-[95%]";
+      wrap.innerHTML = `
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2 text-[10px] font-black uppercase text-emerald-700">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> ${escapeHtml(title)}
+          </div>
+          <div class="pill px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">${escapeHtml(badgeText)}</div>
+        </div>
+        ${html}
+      `;
+      container.appendChild(wrap);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHtml(str){
+      return String(str)
+        .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+    }
+
+    // ----------------------------
+    // Scenarios
+    // ----------------------------
+    function renderScenarios(){
+      const list = document.getElementById('question-list');
+      list.innerHTML = '';
+      SCENARIOS.forEach((s, idx) => {
+        const div = document.createElement('div');
+        div.className = "scenario-card p-4 bg-white rounded-2xl border border-slate-100 shadow-sm cursor-pointer hover:border-emerald-300 transition-all mb-2";
+        div.onclick = () => selectScenario(idx);
+        div.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">${s.emoji}</span>
+            <div>
+              <div class="text-[11px] font-black text-slate-800">${s.name}</div>
+              <div class="text-[9px] text-slate-400 font-bold">${s.questions.length} Questions</div>
+            </div>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function selectScenario(idx){
+      selectedScenarioIndex = idx;
+      selectedQuestionIndex = 0;
+
+      document.querySelectorAll('.scenario-card').forEach((el, i) => {
+        el.classList.toggle('border-emerald-500', i === idx);
+        el.classList.toggle('bg-emerald-50', i === idx);
+      });
+
+      const firstQ = SCENARIOS[idx].questions[0];
+      addChatMessage("AI", `${SCENARIOS[idx].emoji} Scene: ${SCENARIOS[idx].name}\n\nQuestion: ${firstQ}`);
+      document.getElementById('tts-btn-main').classList.remove('hidden');
+    }
+
+    // ----------------------------
+    // TTS
+    // ----------------------------
+    function speakText(text){
+      if (!text) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      u.rate = 0.95;
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => /Google|Samantha/i.test(v.name));
+      if (preferred) u.voice = preferred;
+      window.speechSynthesis.speak(u);
+    }
+    function speakLastAI(){
+      const q = SCENARIOS[selectedScenarioIndex].questions[selectedQuestionIndex];
+      speakText(q);
+    }
+
+    // ----------------------------
+    // Copy report
+    // ----------------------------
+    async function copyLastReport(){
+      if (!lastReportText) return;
+      try{
+        await navigator.clipboard.writeText(lastReportText);
+        setStatus("COPIED", "indigo");
+        setTimeout(()=>setStatus("READY", "emerald"), 900);
+      }catch(e){
+        console.warn(e);
+        setStatus("COPY FAILED", "red");
+      }
+    }
+
+    // ----------------------------
+    // Speech Recognition
+    // ----------------------------
+    function initSpeechRecognition(){
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR){
+        setStatus("BROWSER NOT SUPPORTED", "red");
+        return;
+      }
+      recognition = new SR();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        finalTranscript = "";
+        startTime = Date.now();
+        updateRecordUI(true);
+        setStatus("LISTENING...", "blue");
+        startVisualizer();
+        activeUserBubble = addChatMessage("User", "...");
+      };
+
+      recognition.onresult = (event) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript + " ";
+          else interim += event.results[i][0].transcript;
+        }
+        if (activeUserBubble) activeUserBubble.innerText = (finalTranscript + interim).trim();
+      };
+
+      recognition.onerror = (e) => {
+        console.warn("SR error:", e);
+        isRecording = false;
+        stopVisualizer();
+        updateRecordUI(false);
+        setStatus("MIC ERROR", "red");
+      };
+
+      recognition.onend = () => {
+        if (isRecording) {
+          try { recognition.start(); } catch (_) {}
+        } else {
+          stopVisualizer();
+          handleAnalysis();
+        }
+      };
+    }
+
+    function toggleRecording(){
+      if (!recognition) return;
+      if (isRecording){
+        isRecording = false;
+        try { recognition.stop(); } catch (_) {}
+      } else {
+        isRecording = true;
+        try { recognition.start(); } catch (_) {}
+      }
+    }
+
+    function updateRecordUI(active){
+      const btn = document.getElementById('record-btn');
+      const icon = document.getElementById('record-icon');
+      const text = document.getElementById('record-text');
+      const fill = document.getElementById('record-fill');
+
+      if (active){
+        btn.classList.add('recording-pulse','border-red-500');
+        btn.classList.remove('border-indigo-500');
+        icon.className = "fa-solid fa-stop text-3xl md:text-4xl text-red-500 z-10";
+        text.innerText = "Stop";
+        fill.classList.remove('scale-0'); fill.classList.add('scale-100');
+      } else {
+        btn.classList.remove('recording-pulse','border-red-500');
+        btn.classList.add('border-indigo-500');
+        icon.className = "fa-solid fa-microphone text-3xl md:text-4xl text-indigo-500 z-10";
+        text.innerText = "Record";
+        fill.classList.remove('scale-100'); fill.classList.add('scale-0');
+      }
+    }
+
+    // ----------------------------
+    // Visualizer
+    // ----------------------------
+    async function startVisualizer(){
+      try{
+        if (!mediaStream) mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(mediaStream);
+
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        source.connect(analyser);
+
+        const bars = Array.from(document.querySelectorAll('#visualizer .audio-bar'));
+        const step = Math.max(1, Math.floor(dataArray.length / bars.length));
+
+        const tick = () => {
+          analyser.getByteFrequencyData(dataArray);
+          bars.forEach((bar, i) => {
+            let sum = 0;
+            for (let j=0;j<step;j++) sum += dataArray[i*step + j] || 0;
+            const avg = sum/step;
+            const h = Math.max(4, Math.min(48, (avg/255)*48));
+            bar.style.height = `${h}px`;
+          });
+          rafId = requestAnimationFrame(tick);
+        };
+
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(tick);
+      }catch(e){
+        console.warn("Visualizer error:", e);
+      }
+    }
+
+    function stopVisualizer(){
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      document.querySelectorAll('#visualizer .audio-bar').forEach(b => b.style.height="4px");
+      if (mediaStream){
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+      analyser = null; dataArray = null;
+    }
+
+    // ----------------------------
+    // Local Coach: Analysis + Rewrite + Grammar + Dialogue
+    // ----------------------------
+    function handleAnalysis(){
+      const text = (finalTranscript || "").trim();
+
+      if (!text){
+        if (activeUserBubble) activeUserBubble.remove();
+        activeUserBubble = null;
+        setStatus("READY", "emerald");
+        updateRecordUI(false);
+        return;
+      }
+
+      document.getElementById('thinking-indicator').classList.remove('hidden');
+      document.getElementById('copy-btn').classList.add('hidden');
+
+      setTimeout(() => {
+        const report = runLocalCoach(text);
+        applyDashboard(report.metrics);
+        renderCoachPanels(text, report);
+
+        saveLog(text, report.metrics.overall);
+
+        document.getElementById('thinking-indicator').classList.add('hidden');
+        setStatus("ANALYSIS COMPLETE", "emerald");
+        updateRecordUI(false);
+
+        // Move to next question + coach follow-up
+        const coachQ = report.coach.nextPrompt;
+        if (coachQ){
+          setTimeout(()=> addChatMessage("AI", coachQ), 900);
+        } else {
+          if (selectedQuestionIndex < SCENARIOS[selectedScenarioIndex].questions.length - 1) {
+            selectedQuestionIndex++;
+            const nextQ = SCENARIOS[selectedScenarioIndex].questions[selectedQuestionIndex];
+            setTimeout(()=> addChatMessage("AI", `Next question: ${nextQ}`), 900);
+          }
+        }
+      }, 600);
+    }
+
+    function runLocalCoach(text){
+      const metrics = computeRubric(text);
+      const grammar = grammarCheck(text);
+      const rewrites = rewriteSuggestions(text, grammar.fixedText);
+      const coach = generateCoachReply(text, grammar, metrics);
+
+      // Build copyable report
+      lastReportText =
+        `User: ${text}\n\n` +
+        `Rubric:\n- Overall: ${metrics.overall}\n- Fluency: ${metrics.fluency}\n- Accuracy: ${metrics.accuracy}\n- Vocabulary: ${metrics.vocab}\n- Coherence: ${metrics.coh}\n\n` +
+        `Grammar Notes:\n${grammar.items.map(x=>`- ${x.title}: ${x.explain}\n  Bad: ${x.exampleBad}\n  Good: ${x.exampleGood}\n`).join("") || "- None detected\n"}\n` +
+        `Rewrite:\n- Corrected: ${rewrites.corrected}\n- More natural: ${rewrites.natural}\n- More formal: ${rewrites.formal}\n\n` +
+        `Coach:\n${coach.reply}\n` +
+        (coach.nextPrompt ? `\nNext prompt: ${coach.nextPrompt}\n` : "");
+
+      document.getElementById('copy-btn').classList.remove('hidden');
+      return { metrics, grammar, rewrites, coach };
+    }
+
+    // ----------------------------
+    // Rubric scoring (0-100)
+    // ----------------------------
+    function computeRubric(text){
+      const lower = text.toLowerCase();
+      const words = lower.split(/\s+/).filter(Boolean);
+      const durationSec = Math.max(1, (Date.now() - (startTime || Date.now()))/1000);
+      const wpm = Math.round((words.length / durationSec) * 60);
+
+      // fillers count
+      const fillerCount = countFillers(lower);
+
+      // Fluency (25)
+      // ideal 90-150, penalize too slow/fast + fillers
+      let fluency = 0;
+      if (wpm >= 90 && wpm <= 150) fluency = 25;
+      else if (wpm >= 70 && wpm < 90) fluency = 18;
+      else if (wpm > 150 && wpm <= 180) fluency = 18;
+      else fluency = 12;
+      fluency -= Math.min(8, fillerCount * 2);
+      fluency = clamp(fluency, 0, 25);
+
+      // Accuracy (25) based on grammar rule hits (rough)
+      const grammarHits = GRAMMAR_RULES.filter(r => r.detect(text)).length;
+      let accuracy = 25 - grammarHits * 6;
+      accuracy = clamp(accuracy, 0, 25);
+
+      // Vocabulary (20): type-token ratio + advanced word hints
+      const unique = new Set(words);
+      const ttr = words.length ? (unique.size / words.length) : 0;
+      let vocab = 10 + Math.round(ttr * 10); // 10..20-ish
+      vocab = clamp(vocab, 0, 20);
+
+      // Coherence (15): coherence markers + sentence length balance
+      const markerCount = COHERENCE_MARKERS.reduce((acc, m)=> acc + (lower.includes(m) ? 1 : 0), 0);
+      let coh = 8 + markerCount * 2; // up to ~16
+      coh = clamp(coh, 0, 15);
+
+      // Task (15): answered length + relevance proxy (keyword overlap with prompt)
+      let task = 0;
+      task += words.length >= 8 ? 10 : (words.length >= 5 ? 7 : 4);
+      task += estimateRelevanceBoost(lower);
+      task = clamp(task, 0, 15);
+
+      const overall = Math.round((fluency + accuracy + vocab + coh + task) / (25+25+20+15+15) * 100);
+
+      return {
+        overall,
+        fluency: Math.round(fluency/25*100),
+        accuracy: Math.round(accuracy/25*100),
+        vocab: Math.round(vocab/20*100),
+        coh: Math.round(coh/15*100),
+        wpm,
+        fillerCount
+      };
+    }
+
+    function estimateRelevanceBoost(lower){
+      const prompt = (SCENARIOS[selectedScenarioIndex].questions[selectedQuestionIndex] || "").toLowerCase();
+      const key = prompt.split(/\W+/).filter(w => w.length >= 4);
+      let hit = 0;
+      key.slice(0,6).forEach(k => { if (lower.includes(k)) hit++; });
+      // 0..5
+      return Math.min(5, hit);
+    }
+
+    function countFillers(lower){
+      let n = 0;
+      FILLER_WORDS.forEach(f => {
+        const re = new RegExp(`\\b${escapeRegExp(f)}\\b`, "g");
+        const m = lower.match(re);
+        if (m) n += m.length;
+      });
+      return n;
+    }
+
+    function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+    function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+    // ----------------------------
+    // Grammar check + explanations
+    // ----------------------------
+    function grammarCheck(text){
+      const items = [];
+      let fixed = text;
+
+      GRAMMAR_RULES.forEach(rule => {
+        if (rule.detect(text)){
+          items.push({
+            id: rule.id,
+            title: rule.title,
+            explain: rule.explain,
+            exampleBad: rule.exampleBad,
+            exampleGood: rule.exampleGood
+          });
+          fixed = rule.fix(fixed);
+        }
+      });
+
+      return { items, fixedText: fixed };
+    }
+
+    // ----------------------------
+    // Rewrite suggestions
+    // ----------------------------
+    function rewriteSuggestions(original, corrected){
+      // Natural: apply rewrite rules on corrected
+      let natural = corrected;
+      const applied = [];
+      REWRITE_RULES.forEach(r => {
+        if (r.pattern.test(natural)){
+          natural = natural.replace(r.pattern, r.replace);
+          applied.push(r);
+        }
+      });
+
+      // Formal: mild upgrade (add connectors, avoid contractions)
+      let formal = natural;
+      formal = formal.replace(/\bcan't\b/ig,"cannot")
+                     .replace(/\bI'm\b/ig,"I am")
+                     .replace(/\bIt's\b/ig,"It is");
+      // adjective upgrades hint
+      let vocabTip = "Try upgrading simple adjectives.";
+      for (const a of ADJ_UPGRADE){
+        if (a.from.test(original)){ vocabTip = `Adjective upgrade: ${a.to}`; break; }
+      }
+
+      // If nothing changed, still provide controlled templates
+      if (natural.trim() === original.trim()){
+        natural = makeTemplateRewrite(original, "natural");
+      }
+      if (formal.trim() === original.trim()){
+        formal = makeTemplateRewrite(original, "formal");
+      }
+
+      return { corrected, natural, formal, applied, vocabTip };
+    }
+
+    function makeTemplateRewrite(text, mode){
+      // Simple template: add opener + reason + close
+      const base = text.trim();
+      if (mode === "formal"){
+        return `In my opinion, ${base}. Therefore, I believe this is a good choice.`;
+      }
+      return `Well, ${base}. Also, I can add a bit more detail if needed.`;
+    }
+
+    // ----------------------------
+    // Dialogue generation (state-machine-ish)
+    // ----------------------------
+    function generateCoachReply(userText, grammar, metrics){
+      const lower = userText.toLowerCase();
+      const scenario = SCENARIOS[selectedScenarioIndex];
+
+      // If very short → ask to elaborate
+      if (userText.split(/\s+/).filter(Boolean).length < 5){
+        return {
+          reply: "Nice start. Could you add one more detail (reason, example, or preference) to make it clearer?",
+          nextPrompt: "Tell me one more detail. For example: why / when / how much / where?"
+        };
+      }
+
+      // If grammar issues
+      if (grammar.items.length){
+        const top = grammar.items[0];
+        return {
+          reply: `I noticed a grammar point: **${top.title}**. Try saying it again using the corrected sentence.`,
+          nextPrompt: `Repeat your answer with the corrected version: "${grammar.fixedText}"`
+        };
+      }
+
+      // If fillers too many
+      if (metrics.fillerCount >= 3){
+        return {
+          reply: "Your message is clear, but you used several filler words. Try again with fewer “um/uh/like”.",
+          nextPrompt: "Say the same idea again, but more directly (no filler words)."
+        };
+      }
+
+      // Scenario-based follow-ups
+      if (scenario.name.includes("Restaurant")){
+        if (/\b(allergy|allergic)\b/.test(lower)) return { reply:"Good. What ingredient are you allergic to?", nextPrompt:"Tell me which ingredient you cannot eat." };
+        if (/\b(order|like|would like|want)\b/.test(lower)) return { reply:"Great. How would you like it cooked, and what drink would you like?", nextPrompt:"Add cooking preference + a drink." };
+        return { reply:"Sounds good. Would you like anything else (side dish or drink)?", nextPrompt:"Add a side dish or a drink." };
+      }
+
+      if (scenario.name.includes("Airport")){
+        if (/\b(passport|ticket)\b/.test(lower)) return { reply:"Perfect. Which airline are you flying with?", nextPrompt:"Tell me the airline and your destination." };
+        if (/\b(check|luggage|bag)\b/.test(lower)) return { reply:"Got it. How many bags are you checking in?", nextPrompt:"Say how many bags, and if any is fragile." };
+        return { reply:"Thanks. What is your final destination and the purpose of your trip?", nextPrompt:"Destination + purpose (business / vacation)." };
+      }
+
+      if (scenario.name.includes("Interview")){
+        if (/\bstrength\b/.test(lower)) return { reply:"Nice. Can you give a concrete example to support your strength?", nextPrompt:"Give one example (situation → action → result)." };
+        if (/\bexperience|project|research\b/.test(lower)) return { reply:"Good. What was your role and what did you achieve?", nextPrompt:"Role + measurable result." };
+        return { reply:"Great. Can you summarize your key achievement in one sentence?", nextPrompt:"One-sentence achievement summary." };
+      }
+
+      // Default
+      return {
+        reply: "Nice answer. To sound more natural, add a short reason and a small example.",
+        nextPrompt: "Add: (1) one reason + (2) one example."
+      };
+    }
+
+    // ----------------------------
+    // Render panels (Rewrite / Grammar / Coach)
+    // ----------------------------
+    function renderCoachPanels(userText, report){
+      // Rewrite panel
+      addPanelCard("Rewrite", "AUTO", `
+        <div class="text-[10px] font-black uppercase text-emerald-700 mb-2">Corrected (grammar)</div>
+        <div class="bg-white rounded-2xl border border-emerald-100 p-3 text-slate-800 text-sm mono mb-3">${escapeHtml(report.rewrites.corrected)}</div>
+
+        <div class="grid md:grid-cols-2 gap-3">
+          <div>
+            <div class="text-[10px] font-black uppercase text-emerald-700 mb-2">More natural</div>
+            <div class="bg-white rounded-2xl border border-emerald-100 p-3 text-slate-800 text-sm mono">${escapeHtml(report.rewrites.natural)}</div>
+          </div>
+          <div>
+            <div class="text-[10px] font-black uppercase text-emerald-700 mb-2">More formal</div>
+            <div class="bg-white rounded-2xl border border-emerald-100 p-3 text-slate-800 text-sm mono">${escapeHtml(report.rewrites.formal)}</div>
+          </div>
+        </div>
+
+        <div class="mt-3 text-[11px] text-emerald-700 font-semibold">
+          Tip: ${escapeHtml(report.rewrites.vocabTip)}
+        </div>
+      `);
+
+      // Grammar panel
+      const grammarHtml = report.grammar.items.length ? `
+        <div class="space-y-3">
+          ${report.grammar.items.map(it => `
+            <div class="bg-white rounded-2xl border border-emerald-100 p-3">
+              <div class="text-[11px] font-black text-slate-800 mb-1">${escapeHtml(it.title)}</div>
+              <div class="text-[11px] text-slate-700">${escapeHtml(it.explain)}</div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 text-[11px]">
+                <div class="bg-slate-50 rounded-xl p-2 border border-slate-100">
+                  <div class="text-[10px] font-black text-slate-400 uppercase">Bad</div>
+                  <div class="mono text-slate-700">${escapeHtml(it.exampleBad)}</div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-2 border border-slate-100">
+                  <div class="text-[10px] font-black text-slate-400 uppercase">Good</div>
+                  <div class="mono text-slate-700">${escapeHtml(it.exampleGood)}</div>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      ` : `<div class="text-[12px] text-emerald-800 font-bold">No major grammar rule triggered. ✅</div>`;
+
+      addPanelCard("Grammar Explanation", report.grammar.items.length ? "FOUND" : "CLEAN", grammarHtml);
+
+      // Coach panel
+      lastCoachReply = report.coach.reply || "";
+      addPanelCard("Coach Reply", "NEXT", `
+        <div class="bg-white rounded-2xl border border-emerald-100 p-3 text-slate-800 text-sm leading-relaxed">
+          ${escapeHtml(report.coach.reply)}
+        </div>
+        ${report.coach.nextPrompt ? `
+          <div class="mt-3 text-[10px] font-black uppercase text-emerald-700">Try this</div>
+          <div class="bg-white rounded-2xl border border-emerald-100 p-3 text-slate-800 text-sm mono">${escapeHtml(report.coach.nextPrompt)}</div>
+        ` : ``}
+      `);
+    }
+
+    // ----------------------------
+    // Apply dashboard
+    // ----------------------------
+    function applyDashboard(m){
+      document.getElementById('score-val').innerText = m.overall;
+      document.getElementById('score-bar').style.width = `${m.overall}%`;
+
+      document.getElementById('r-fluency').innerText = m.fluency;
+      document.getElementById('r-accuracy').innerText = m.accuracy;
+      document.getElementById('r-vocab').innerText = m.vocab;
+      document.getElementById('r-coh').innerText = m.coh;
+
+      document.getElementById('pace-val').innerText = m.wpm;
+      document.getElementById('pace-bar').style.width = `${Math.min((m.wpm/160)*100, 100)}%`;
+      document.getElementById('pace-tag').innerText = (m.wpm >= 90 && m.wpm <= 150) ? "Natural" : (m.wpm < 90 ? "Slow" : "Fast");
+
+      document.getElementById('filler-val').innerText = m.fillerCount;
+      document.getElementById('filler-bar').style.width = `${Math.min((m.fillerCount/10)*100, 100)}%`;
+      document.getElementById('filler-tag').innerText = m.fillerCount > 3 ? "Too many" : (m.fillerCount > 0 ? "Some" : "Clean");
+
+      const level = m.overall > 85 ? "Excellent" : (m.overall > 70 ? "Good" : "Keep Practicing");
+      document.getElementById('performance-val').innerText = level;
+      document.getElementById('performance-icon').innerText = m.overall > 80 ? "🌟" : "🎯";
+    }
+
+    // ----------------------------
+    // Log
+    // ----------------------------
+    function saveLog(text, score){
+      const list = document.getElementById('history-list');
+      if (list.querySelector('p')) list.innerHTML = '';
+
+      const now = new Date();
+      const time = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+      const d = document.createElement('div');
+      d.className = "p-3 bg-white rounded-2xl border border-slate-100 shadow-sm";
+
+      d.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div class="text-[10px] font-black text-slate-500">${time}</div>
+          <div class="text-[10px] font-black text-indigo-600">Score ${score}</div>
+        </div>
+        <div class="text-[11px] text-slate-700 mt-2 leading-snug">${escapeHtml(text).slice(0,160)}${text.length>160?'…':''}</div>
+      `;
+      list.prepend(d);
+    }
+  </script>
+</body>
+</html>
